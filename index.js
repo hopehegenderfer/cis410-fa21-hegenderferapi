@@ -34,3 +34,27 @@ app.get("/orders", (req, res) => {
       res.status(500).send();
     });
 });
+
+app.get("/orders/:pk", (req, res) => {
+  let pk = req.params.pk;
+  // console.log(pk);
+  let myQuery = `select *
+  from [Order]
+  left join barista
+  on [order].EmployeeFK = barista.EmployeePK
+  where orderID = ${pk}`;
+
+  db.executeQuery(myQuery)
+    .then((result) => {
+      // console.log("result", result);
+      if (result[0]) {
+        res.send(result[0]);
+      } else {
+        res.status(404).send("bad request");
+      }
+    })
+    .catch((err) => {
+      console.log("Error in /orders/:pk", err);
+      res.status(500).send();
+    });
+});
