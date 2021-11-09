@@ -1,5 +1,7 @@
 const express = require("express");
 const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
+const rockwellConfig = require("./config.js");
 
 const db = require("./dbConnectExec.js");
 
@@ -21,27 +23,101 @@ app.get("/", (req, res) => {
 // app.post();
 // app.put();
 
+app.post("/contacts/login", async (req, res) => {
+  // console.log("/contacts/login called", req.body);
+
+  //1. data validation
+
+  let email = req.body.email;
+  let password = req.body.password;
+
+  if (!email || !password) {
+    return res.status(400).send("Bad request");
+  }
+
+  //2. check that user exists in DB
+
+  let query = `select *
+  from Contact
+  where email = '${email}'`;
+
+  let result;
+  try {
+    result = await db.executeQuery(query);
+  } catch (myError) {
+    console.log("error in /contacts/login", myError);
+    return res.status(500).send();
+  }
+
+  console.log("result", result);
+
+  if (!result[0]) {
+    return res.status(401).send("Invalid user credentials");
+  }
+
+  //3. check password
+
+  let user = result[0];
+
+  if (!bcrypt.compareSync(password, user.password)) {
+    console.log("invalid password");
+    return res.status(401).send("Invalid user credentials");
+  }
+  //4. generate token
+
+  let token = jwt.sign({ pk: user.CustomerPK }, rockwellConfig.jwt, {
+    expiresIn: "60 minutes",
+  });
+
+  console.log("token", token);
+
+  //5. save token in DB and send response back
+
+  let setTokenQuery = `update Contact
+  set token = '${token}'
+  where CustomerPK = ${user.CustomerPK}`;
+
+  try {
+    await db.executeQuery(setTokenQuery);
+
+    res.status(200).send({
+      token: token,
+      user: {
+        NameFirst: user.NameFirst,
+        NameLast: user.NameLast,
+        Email: user.Email,
+        CustomerPK: user.CustomerPK,
+      },
+    });
+  } catch (myError) {
+    console.log("Error in setting user token", myError);
+    res.status(500).send();
+  }
+});
+
 app.post("/contacts", async (req, res) => {
   // res.send("/contacts called");
 
   // console.log("request body", req.body);
 
-  let nameFirst = req.body.nameFirst;
-  let nameLast = req.body.nameLast;
-  let phoneNumber = req.body.phoneNumber;
-  let address = req.body.address;
-  let dob = req.body.dob;
+  let NameFirst = req.body.NameFirst;
+  let NameLast = req.body.NameLast;
+  let PhoneNumber = req.body.PhoneNumber;
+  let Address = req.body.Address;
+  let DOB = req.body.DOB;
+  let Email = req.body.Email;
+  let Password = req.body.Password;
 
-  if (!nameFirst || !nameLast || !phoneNumber || !address || !dob) {
+  if (!NameFirst || !NameLast || !PhoneNumber || !Address || !DOB) {
     return res.status(400).send("Bad request");
   }
 
-  nameFirst = nameFirst.replace("'", "''");
-  nameLast = nameLast.replace("'", "''");
+  NameFirst = NameFirst.replace("'", "''");
+  NameLast = NameLast.replace("'", "''");
 
   let phoneCheckQuery = `select PhoneNumber
   from contact
-  where PhoneNumber = '${phoneNumber}'`;
+  where PhoneNumber = '${PhoneNumber}'`;
 
   let existingUser = await db.executeQuery(phoneCheckQuery);
 
@@ -51,10 +127,10 @@ app.post("/contacts", async (req, res) => {
     return res.status(409).send("Duplicate Phone Number");
   }
 
-  let hashedLastName = bcrypt.hashSync(nameLast);
+  let hashedPassword = bcrypt.hashSync(Password);
 
-  let insertQuery = `insert into contact(NameFirst, NameLast, PhoneNumber, Address, DOB)
-    values ('${nameFirst}', '${hashedLastName}', '${phoneNumber}', '${address}', '${dob}')`;
+  let insertQuery = `insert into contact(NameFirst, NameLast, PhoneNumber, Address, DOB, email, password)
+    values ('${NameFirst}', '${NameLast}}', '${PhoneNumber}', '${Address}', '${DOB}', '${Email}', '${hashedPassword}' )`;
 
   db.executeQuery(insertQuery)
     .then(() => {
