@@ -3,6 +3,8 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const rockwellConfig = require("./config.js");
 
+const auth = require("./middleware/authenticate");
+
 const db = require("./dbConnectExec.js");
 
 const app = express();
@@ -22,6 +24,41 @@ app.get("/", (req, res) => {
 
 // app.post();
 // app.put();
+
+app.post("/drinks", auth, async (req, res) => {
+  try {
+    let DrinkID = req.body.DrinkID;
+    let Type = req.body.Type;
+    let AddIns = req.body.AddIns;
+
+    if (!DrinkID || !Type || !AddIns || Number.isInteger(DrinkID)) {
+      // return res.status(400).send("bad request");
+
+      Type = Type.replace("'", "''");
+
+      // console.log("type", Type);
+      // console.log("here is the contact", req.contact);
+
+      let insertQuery = `insert into Drink(Type, AddIns)
+      output inserted.DrinkID, inserted.Type, inserted.AddIns
+      values ('${Type}', '${AddIns}')`;
+
+      let insertedDrink = await db.executeQuery(insertQuery);
+      console.log("inserted drink", insertedDrink);
+
+      // res.send("here is the response");
+
+      res.status(201).send(insertedDrink[0]);
+    }
+  } catch (err) {
+    console.log("error in POST /reviews", err);
+    res.status(500).send();
+  }
+});
+
+app.get("/contacts/me", auth, (req, res) => {
+  res.send(req.contact);
+});
 
 app.post("/contacts/login", async (req, res) => {
   // console.log("/contacts/login called", req.body);
@@ -59,7 +96,7 @@ app.post("/contacts/login", async (req, res) => {
 
   let user = result[0];
 
-  if (!bcrypt.compareSync(password, user.password)) {
+  if (!bcrypt.compareSync(password, user.Password)) {
     console.log("invalid password");
     return res.status(401).send("Invalid user credentials");
   }
