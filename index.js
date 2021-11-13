@@ -1,4 +1,5 @@
 const express = require("express");
+const cors = require("cors");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const rockwellConfig = require("./config.js");
@@ -10,8 +11,13 @@ const db = require("./dbConnectExec.js");
 const app = express();
 app.use(express.json());
 
-app.listen(5000, () => {
-  console.log("app is running on port 5000");
+//azurewebistes.net, colostate.edu
+app.use(cors());
+
+const PORT = process.env.PORT || 5000;
+
+app.listen(PORT, () => {
+  console.log("app is running on port ${PORT}");
 });
 
 app.get("/hi", (req, res) => {
